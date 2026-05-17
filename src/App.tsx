@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { 
   Github, 
   Linkedin, 
@@ -65,6 +67,161 @@ interface Publication {
 const profileImage = new URL('../img/profil.webp', import.meta.url).href;
 
 // --- Components ---
+
+const PdfViewer = ({ fileUrl, title }: { fileUrl: string; title: string }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageCount, setPageCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRendering, setIsRendering] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [renderVersion, setRenderVersion] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let loadingTask: { promise: Promise<PDFDocumentProxy>; destroy: () => void } | null = null;
+    setIsLoading(true);
+    setError(null);
+    setPdfDoc(null);
+    setPageNumber(1);
+    setPageCount(0);
+
+    const loadDocument = async () => {
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+        if (cancelled) return;
+
+        loadingTask = pdfjsLib.getDocument(fileUrl);
+        const doc = await loadingTask.promise;
+        if (cancelled) {
+          doc.destroy();
+          return;
+        }
+        setPdfDoc(doc);
+        setPageCount(doc.numPages);
+      } catch {
+        if (!cancelled) setError('Preview PDF gagal dimuat.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    loadDocument();
+
+    return () => {
+      cancelled = true;
+      loadingTask?.destroy();
+    };
+  }, [fileUrl]);
+
+  useEffect(() => {
+    const handleResize = () => setRenderVersion((current) => current + 1);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!pdfDoc || !canvasRef.current || !containerRef.current) return undefined;
+
+    let cancelled = false;
+    setIsRendering(true);
+
+    const renderPage = async () => {
+      try {
+        const page = await pdfDoc.getPage(pageNumber);
+        if (cancelled || !canvasRef.current || !containerRef.current) return;
+
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Canvas context unavailable');
+
+        const baseViewport = page.getViewport({ scale: 1 });
+        const availableWidth = Math.max(containerRef.current.clientWidth - 24, 260);
+        const scale = Math.min(availableWidth / baseViewport.width, 1.6);
+        const viewport = page.getViewport({ scale });
+        const pixelRatio = window.devicePixelRatio || 1;
+
+        canvas.width = Math.floor(viewport.width * pixelRatio);
+        canvas.height = Math.floor(viewport.height * pixelRatio);
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.clearRect(0, 0, viewport.width, viewport.height);
+
+        const renderTask = page.render({ canvasContext: context, viewport });
+        await renderTask.promise;
+      } catch {
+        if (!cancelled) setError('Preview halaman PDF gagal dirender.');
+      } finally {
+        if (!cancelled) setIsRendering(false);
+      }
+    };
+
+    renderPage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfDoc, pageNumber, renderVersion]);
+
+  const canGoBack = pageNumber > 1;
+  const canGoForward = pageCount > 0 && pageNumber < pageCount;
+
+  return (
+    <div className="flex h-full min-h-[360px] flex-col overflow-hidden rounded-xl border border-white/5 bg-slate-950">
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-slate-900/70 px-3 py-2">
+        <div className="min-w-0">
+          <div className="truncate text-xs font-bold text-white">{title}</div>
+          <div className="text-[10px] uppercase tracking-widest text-slate-500">
+            {pageCount ? `Page ${pageNumber} / ${pageCount}` : 'PDF Preview'}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPageNumber((current) => Math.max(1, current - 1))}
+            disabled={!canGoBack}
+            className="rounded-lg border border-white/10 px-3 py-1 text-xs font-bold text-slate-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            Prev
+          </button>
+          <button
+            type="button"
+            onClick={() => setPageNumber((current) => Math.min(pageCount, current + 1))}
+            disabled={!canGoForward}
+            className="rounded-lg border border-white/10 px-3 py-1 text-xs font-bold text-slate-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      <div ref={containerRef} className="relative flex min-h-0 flex-1 items-start justify-center overflow-auto p-3">
+        {(isLoading || isRendering) && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/70 text-xs font-bold uppercase tracking-widest text-cyan-300">
+            Loading PDF
+          </div>
+        )}
+
+        {error ? (
+          <div className="flex h-full min-h-[260px] flex-col items-center justify-center gap-4 p-6 text-center">
+            <FileText size={56} className="text-cyan-400" />
+            <p className="text-sm text-slate-400">{error}</p>
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-cyan-500 px-5 py-3 font-bold text-quantum-bg transition-colors hover:bg-cyan-400">
+              Buka PDF
+            </a>
+          </div>
+        ) : (
+          <canvas ref={canvasRef} className="max-w-full rounded bg-white shadow-2xl shadow-black/30" aria-label={`Preview ${title}`} />
+        )}
+      </div>
+    </div>
+  );
+};
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -267,16 +424,7 @@ const Hero = () => {
 
               <div className="grid max-h-[calc(92svh-76px)] overflow-y-auto lg:grid-cols-[1fr_260px]">
                 <div className="h-[58svh] min-h-[360px] bg-slate-950 lg:h-[70vh]">
-                  <object
-                    data={`${resumeUrl}#toolbar=0&navpanes=0`}
-                    type="application/pdf"
-                    className="h-full w-full"
-                    aria-label="Preview CV Ahmad Habibi"
-                  >
-                    <div className="flex h-full items-center justify-center p-8 text-center">
-                      <p className="text-slate-400">Preview PDF tidak tersedia di browser ini.</p>
-                    </div>
-                  </object>
+                  <PdfViewer fileUrl={resumeUrl} title="CV Ahmad Habibi" />
                 </div>
                 <div className="flex flex-col justify-center gap-5 p-4 sm:p-6">
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -914,18 +1062,8 @@ const CertsSection = () => {
               </button>
 
               <div className="flex flex-col md:flex-row gap-6 sm:gap-8 items-center">
-                <div className="w-full md:w-1/2 h-[46svh] min-h-[280px] md:aspect-[4/3] md:h-auto bg-slate-800 rounded-xl flex items-center justify-center border border-white/5 overflow-hidden">
-                  <object
-                    data={`${selectedCert.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                    type="application/pdf"
-                    className="w-full h-full"
-                    aria-label={`Preview ${selectedCert.title}`}
-                  >
-                    <div className="text-center p-4">
-                      <Award size={64} className="text-cyan-400 mx-auto mb-4 animate-pulse" />
-                      <p className="text-sm font-mono text-slate-500">PDF PREVIEW UNAVAILABLE</p>
-                    </div>
-                  </object>
+                <div className="w-full md:w-1/2 h-[46svh] min-h-[360px] md:h-[70vh]">
+                  <PdfViewer fileUrl={selectedCert.fileUrl} title={selectedCert.title} />
                 </div>
                 <div className="w-full md:w-1/2">
                    <span className="caps-label text-cyan-400 mb-4 block">Official Documents</span>
@@ -1053,18 +1191,8 @@ const PublicationsSection = () => {
               </button>
 
               <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-                <div className="h-[58svh] min-h-[360px] overflow-hidden rounded-xl border border-white/5 bg-slate-800">
-                  <object
-                    data={`${selectedPublication.fileUrl}#toolbar=0&navpanes=0`}
-                    type="application/pdf"
-                    className="h-full w-full"
-                    aria-label={`Preview ${selectedPublication.title}`}
-                  >
-                    <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-                      <FileText size={64} className="mb-4 text-cyan-400" />
-                      <p className="text-sm font-mono text-slate-500">PDF PREVIEW UNAVAILABLE</p>
-                    </div>
-                  </object>
+                <div className="h-[58svh] min-h-[360px]">
+                  <PdfViewer fileUrl={selectedPublication.fileUrl} title={selectedPublication.title} />
                 </div>
 
                 <div className="flex flex-col justify-center">
