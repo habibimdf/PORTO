@@ -140,9 +140,17 @@ const PdfViewer = ({ fileUrl, title }: { fileUrl: string; title: string }) => {
 
         const baseViewport = page.getViewport({ scale: 1 });
         const availableWidth = Math.max(containerRef.current.clientWidth - 24, 260);
-        const scale = Math.min(availableWidth / baseViewport.width, 1.6);
+        const scale = Math.min(availableWidth / baseViewport.width, 1.35);
         const viewport = page.getViewport({ scale });
-        const pixelRatio = window.devicePixelRatio || 1;
+        const rawPixelRatio = window.devicePixelRatio || 1;
+        const isSmallScreen = window.matchMedia('(max-width: 768px)').matches;
+        let pixelRatio = Math.min(rawPixelRatio, isSmallScreen ? 1 : 1.5);
+        const maxCanvasPixels = isSmallScreen ? 1800000 : 4200000;
+        const estimatedPixels = viewport.width * viewport.height * pixelRatio * pixelRatio;
+
+        if (estimatedPixels > maxCanvasPixels) {
+          pixelRatio *= Math.sqrt(maxCanvasPixels / estimatedPixels);
+        }
 
         canvas.width = Math.floor(viewport.width * pixelRatio);
         canvas.height = Math.floor(viewport.height * pixelRatio);
@@ -152,10 +160,26 @@ const PdfViewer = ({ fileUrl, title }: { fileUrl: string; title: string }) => {
         context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
         context.clearRect(0, 0, viewport.width, viewport.height);
 
-        const renderTask = page.render({ canvasContext: context, viewport });
-        await renderTask.promise;
+        try {
+          const renderTask = page.render({ canvasContext: context, viewport });
+          await renderTask.promise;
+        } catch {
+          if (cancelled) return;
+
+          const fallbackScale = Math.min(availableWidth / baseViewport.width, 0.72);
+          const fallbackViewport = page.getViewport({ scale: fallbackScale });
+          canvas.width = Math.floor(fallbackViewport.width);
+          canvas.height = Math.floor(fallbackViewport.height);
+          canvas.style.width = `${Math.floor(fallbackViewport.width)}px`;
+          canvas.style.height = `${Math.floor(fallbackViewport.height)}px`;
+
+          context.setTransform(1, 0, 0, 1, 0, 0);
+          context.clearRect(0, 0, fallbackViewport.width, fallbackViewport.height);
+          const fallbackTask = page.render({ canvasContext: context, viewport: fallbackViewport });
+          await fallbackTask.promise;
+        }
       } catch {
-        if (!cancelled) setError('Preview halaman PDF gagal dirender.');
+        if (!cancelled) setError('Preview halaman PDF gagal dirender. Coba buka PDF langsung.');
       } finally {
         if (!cancelled) setIsRendering(false);
       }
@@ -211,9 +235,14 @@ const PdfViewer = ({ fileUrl, title }: { fileUrl: string; title: string }) => {
           <div className="flex h-full min-h-[260px] flex-col items-center justify-center gap-4 p-6 text-center">
             <FileText size={56} className="text-cyan-400" />
             <p className="text-sm text-slate-400">{error}</p>
-            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-cyan-500 px-5 py-3 font-bold text-quantum-bg transition-colors hover:bg-cyan-400">
-              Buka PDF
-            </a>
+            <div className="flex flex-wrap justify-center gap-3">
+              <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-cyan-500 px-5 py-3 font-bold text-quantum-bg transition-colors hover:bg-cyan-400">
+                Buka PDF
+              </a>
+              <a href={fileUrl} download className="rounded-xl border border-white/10 px-5 py-3 font-bold text-white transition-colors hover:bg-white/10">
+                Download
+              </a>
+            </div>
           </div>
         ) : (
           <canvas ref={canvasRef} className="max-w-full rounded bg-white shadow-2xl shadow-black/30" aria-label={`Preview ${title}`} />
