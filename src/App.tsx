@@ -46,6 +46,7 @@ interface Certification {
   issuer: string;
   description: string;
   fileUrl: string;
+  previewImages: string[];
 }
 
 interface ActivityImage {
@@ -61,14 +62,18 @@ interface Publication {
   description: string;
   fileName: string;
   fileUrl: string;
+  previewImages: string[];
   tags: string[];
 }
 
 const profileImage = new URL('../img/profil.webp', import.meta.url).href;
+const pdfPreviewImages = (slug: string, pageCount: number) => (
+  Array.from({ length: pageCount }, (_, index) => `/pdf-previews/${slug}/page-${String(index + 1).padStart(2, '0')}.webp`)
+);
 
 // --- Components ---
 
-const PdfViewer = ({ fileUrl, title }: { fileUrl: string; title: string }) => {
+const PdfViewer = ({ fileUrl, title, previewImages = [] }: { fileUrl: string; title: string; previewImages?: string[] }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
@@ -78,8 +83,36 @@ const PdfViewer = ({ fileUrl, title }: { fileUrl: string; title: string }) => {
   const [isRendering, setIsRendering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [renderVersion, setRenderVersion] = useState(0);
+  const [isMobilePreview, setIsMobilePreview] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+  ));
+  const useImagePreview = isMobilePreview && previewImages.length > 0;
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const updateMode = () => setIsMobilePreview(mediaQuery.matches);
+    updateMode();
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', updateMode);
+      return () => mediaQuery.removeEventListener('change', updateMode);
+    }
+    mediaQuery.addListener(updateMode);
+    return () => mediaQuery.removeListener(updateMode);
+  }, []);
+
+  useEffect(() => {
+    if (!useImagePreview) return;
+    setPdfDoc(null);
+    setError(null);
+    setIsLoading(false);
+    setIsRendering(false);
+    setPageCount(previewImages.length);
+    setPageNumber((current) => Math.min(Math.max(current, 1), previewImages.length));
+  }, [previewImages.length, useImagePreview]);
+
+  useEffect(() => {
+    if (useImagePreview) return undefined;
+
     let cancelled = false;
     let loadingTask: { promise: Promise<PDFDocumentProxy>; destroy: () => void } | null = null;
     setIsLoading(true);
@@ -115,7 +148,7 @@ const PdfViewer = ({ fileUrl, title }: { fileUrl: string; title: string }) => {
       cancelled = true;
       loadingTask?.destroy();
     };
-  }, [fileUrl]);
+  }, [fileUrl, useImagePreview]);
 
   useEffect(() => {
     const handleResize = () => setRenderVersion((current) => current + 1);
@@ -124,7 +157,7 @@ const PdfViewer = ({ fileUrl, title }: { fileUrl: string; title: string }) => {
   }, []);
 
   useEffect(() => {
-    if (!pdfDoc || !canvasRef.current || !containerRef.current) return undefined;
+    if (useImagePreview || !pdfDoc || !canvasRef.current || !containerRef.current) return undefined;
 
     let cancelled = false;
     setIsRendering(true);
@@ -190,10 +223,11 @@ const PdfViewer = ({ fileUrl, title }: { fileUrl: string; title: string }) => {
     return () => {
       cancelled = true;
     };
-  }, [pdfDoc, pageNumber, renderVersion]);
+  }, [pdfDoc, pageNumber, renderVersion, useImagePreview]);
 
   const canGoBack = pageNumber > 1;
   const canGoForward = pageCount > 0 && pageNumber < pageCount;
+  const currentPreviewImage = previewImages[pageNumber - 1];
 
   return (
     <div className="flex h-full min-h-[360px] flex-col overflow-hidden rounded-xl border border-white/5 bg-slate-950">
@@ -225,13 +259,19 @@ const PdfViewer = ({ fileUrl, title }: { fileUrl: string; title: string }) => {
       </div>
 
       <div ref={containerRef} className="relative flex min-h-0 flex-1 items-start justify-center overflow-auto p-3">
-        {(isLoading || isRendering) && (
+        {!useImagePreview && (isLoading || isRendering) && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/70 text-xs font-bold uppercase tracking-widest text-cyan-300">
             Loading PDF
           </div>
         )}
 
-        {error ? (
+        {useImagePreview && currentPreviewImage ? (
+          <img
+            src={currentPreviewImage}
+            alt={`${title} halaman ${pageNumber}`}
+            className="max-w-full rounded bg-white shadow-2xl shadow-black/30"
+          />
+        ) : error ? (
           <div className="flex h-full min-h-[260px] flex-col items-center justify-center gap-4 p-6 text-center">
             <FileText size={56} className="text-cyan-400" />
             <p className="text-sm text-slate-400">{error}</p>
@@ -341,6 +381,7 @@ const Navbar = () => {
 const Hero = () => {
   const [showResume, setShowResume] = useState(false);
   const resumeUrl = new URL('../document/CV_Ahmad_Habibi_.pdf', import.meta.url).href;
+  const resumePreviewImages = pdfPreviewImages('cv-ahmad-habibi', 2);
 
   return (
     <section id="home" className="relative min-h-[100svh] flex items-center pt-28 pb-16 md:pt-20 md:pb-0 overflow-hidden">
@@ -453,7 +494,7 @@ const Hero = () => {
 
               <div className="grid max-h-[calc(92svh-76px)] overflow-y-auto lg:grid-cols-[1fr_260px]">
                 <div className="h-[58svh] min-h-[360px] bg-slate-950 lg:h-[70vh]">
-                  <PdfViewer fileUrl={resumeUrl} title="CV Ahmad Habibi" />
+                  <PdfViewer fileUrl={resumeUrl} title="CV Ahmad Habibi" previewImages={resumePreviewImages} />
                 </div>
                 <div className="flex flex-col justify-center gap-5 p-4 sm:p-6">
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -1029,14 +1070,14 @@ const CertsSection = () => {
   };
 
   const certs: Certification[] = [
-    { id: 1, title: 'BEM Organizational Cert', issuer: 'Univ Bhinneka PGRI', description: 'Awarded for active contribution in Ministry of Law division (2022/2023).', fileUrl: certificateFiles.bem },
-    { id: 2, title: 'Kampus Mengajar Angkatan 6', issuer: 'Kemendikbudristek', description: 'Successfully implemented literacy, numeracy, and tech programs in elementary school.', fileUrl: certificateFiles.kampusMengajar },
-    { id: 3, title: 'Data Analytics with AI', issuer: 'Revolut Tech Academy', description: 'Gained expertise in software development and advanced data analytics.', fileUrl: certificateFiles.dataAnalytics },
-    { id: 4, title: 'Dasar AI', issuer: 'Dicoding Indonesia', description: 'Completed foundational learning for AI concepts and modern digital workflows.', fileUrl: certificateFiles.dasarAi },
-    { id: 5, title: 'Python Programming', issuer: 'Dicoding Indonesia', description: 'Mastered fundamentals of Python for software and AI development.', fileUrl: certificateFiles.dasarPython },
-    { id: 6, title: 'Information Security (ISO 27001)', issuer: 'BSN Official', description: 'Certified in managing global info-security standards.', fileUrl: certificateFiles.informationSecurity },
-    { id: 7, title: 'Pelatihan Microsoft Word', issuer: 'Training Program', description: 'Completed practical training focused on Microsoft Word document formatting and productivity workflows.', fileUrl: certificateFiles.microsoftWord },
-    { id: 8, title: 'SNI ISO 9001 - Sistem Manajemen Mutu', issuer: 'BSN Official', description: 'Completed training on ISO 9001 quality management system requirements and standardization practices.', fileUrl: certificateFiles.sniIso9001 }
+    { id: 1, title: 'BEM Organizational Cert', issuer: 'Univ Bhinneka PGRI', description: 'Awarded for active contribution in Ministry of Law division (2022/2023).', fileUrl: certificateFiles.bem, previewImages: pdfPreviewImages('cert-bem-organizational', 1) },
+    { id: 2, title: 'Kampus Mengajar Angkatan 6', issuer: 'Kemendikbudristek', description: 'Successfully implemented literacy, numeracy, and tech programs in elementary school.', fileUrl: certificateFiles.kampusMengajar, previewImages: pdfPreviewImages('cert-kampus-mengajar', 2) },
+    { id: 3, title: 'Data Analytics with AI', issuer: 'Revolut Tech Academy', description: 'Gained expertise in software development and advanced data analytics.', fileUrl: certificateFiles.dataAnalytics, previewImages: pdfPreviewImages('cert-data-analytics-ai', 2) },
+    { id: 4, title: 'Dasar AI', issuer: 'Dicoding Indonesia', description: 'Completed foundational learning for AI concepts and modern digital workflows.', fileUrl: certificateFiles.dasarAi, previewImages: pdfPreviewImages('cert-dasar-ai', 2) },
+    { id: 5, title: 'Python Programming', issuer: 'Dicoding Indonesia', description: 'Mastered fundamentals of Python for software and AI development.', fileUrl: certificateFiles.dasarPython, previewImages: pdfPreviewImages('cert-dasar-python', 3) },
+    { id: 6, title: 'Information Security (ISO 27001)', issuer: 'BSN Official', description: 'Certified in managing global info-security standards.', fileUrl: certificateFiles.informationSecurity, previewImages: pdfPreviewImages('cert-information-security', 1) },
+    { id: 7, title: 'Pelatihan Microsoft Word', issuer: 'Training Program', description: 'Completed practical training focused on Microsoft Word document formatting and productivity workflows.', fileUrl: certificateFiles.microsoftWord, previewImages: pdfPreviewImages('cert-microsoft-word', 1) },
+    { id: 8, title: 'SNI ISO 9001 - Sistem Manajemen Mutu', issuer: 'BSN Official', description: 'Completed training on ISO 9001 quality management system requirements and standardization practices.', fileUrl: certificateFiles.sniIso9001, previewImages: pdfPreviewImages('cert-sni-iso9001', 1) }
   ];
 
   return (
@@ -1092,7 +1133,7 @@ const CertsSection = () => {
 
               <div className="flex flex-col md:flex-row gap-6 sm:gap-8 items-center">
                 <div className="w-full md:w-1/2 h-[46svh] min-h-[360px] md:h-[70vh]">
-                  <PdfViewer fileUrl={selectedCert.fileUrl} title={selectedCert.title} />
+                  <PdfViewer fileUrl={selectedCert.fileUrl} title={selectedCert.title} previewImages={selectedCert.previewImages} />
                 </div>
                 <div className="w-full md:w-1/2">
                    <span className="caps-label text-cyan-400 mb-4 block">Official Documents</span>
@@ -1144,6 +1185,7 @@ const PublicationsSection = () => {
       description: 'File publikasi yang tersedia pada folder publication untuk pratinjau dan unduhan.',
       fileName: '11446-34225-1-PB.pdf',
       fileUrl: publicationFiles.journalArticle,
+      previewImages: pdfPreviewImages('publication-journal-article', 8),
       tags: ['Journal', 'Article', 'PDF'],
     },
   ];
@@ -1221,7 +1263,7 @@ const PublicationsSection = () => {
 
               <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
                 <div className="h-[58svh] min-h-[360px]">
-                  <PdfViewer fileUrl={selectedPublication.fileUrl} title={selectedPublication.title} />
+                  <PdfViewer fileUrl={selectedPublication.fileUrl} title={selectedPublication.title} previewImages={selectedPublication.previewImages} />
                 </div>
 
                 <div className="flex flex-col justify-center">
