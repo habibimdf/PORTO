@@ -1,0 +1,32 @@
+<svg width="1200" height="760" viewBox="0 0 1200 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="760" fill="#07111f"/>
+  <rect width="1200" height="760" fill="url(#bg)"/>
+  <path d="M120 575C245 482 373 453 507 489C657 529 785 512 1080 340" stroke="#22d3ee" stroke-width="18" stroke-linecap="round" opacity=".16"/>
+  <path d="M112 205C271 270 407 276 520 224C667 156 810 169 1095 269" stroke="#818cf8" stroke-width="14" stroke-linecap="round" opacity=".18"/>
+  <g filter="url(#shadow)">
+    <rect x="206" y="128" width="788" height="504" rx="36" fill="#0f172a" stroke="#1e3a5f" stroke-width="4"/>
+    <rect x="206" y="128" width="788" height="78" rx="36" fill="#111c31"/>
+    <circle cx="262" cy="167" r="10" fill="#fb7185"/>
+    <circle cx="296" cy="167" r="10" fill="#facc15"/>
+    <circle cx="330" cy="167" r="10" fill="#34d399"/>
+    <rect x="266" y="268" width="284" height="252" rx="26" fill="#082f49" stroke="#0ea5e9" stroke-width="4"/>
+    <rect x="606" y="268" width="328" height="74" rx="18" fill="#172554" stroke="#6366f1" stroke-width="4"/>
+    <rect x="606" y="382" width="266" height="22" rx="11" fill="#38bdf8"/>
+    <rect x="606" y="428" width="216" height="18" rx="9" fill="#64748b"/>
+    <rect x="606" y="466" width="286" height="18" rx="9" fill="#475569"/>
+    <rect x="606" y="524" width="164" height="44" rx="22" fill="#22d3ee"/>
+    <path d="M408 328L472 456H432L421 430H365L354 456H316L380 328H408ZM393 363L375 398H411L393 363Z" fill="#e0f2fe"/>
+  </g>
+  <text x="770" y="317" fill="#e2e8f0" font-family="Arial, sans-serif" font-size="42" font-weight="700" text-anchor="middle">ASPRIKU</text>
+  <text x="770" y="557" fill="#082f49" font-family="Arial, sans-serif" font-size="18" font-weight="700" text-anchor="middle">OPEN APP</text>
+  <defs>
+    <linearGradient id="bg" x1="80" x2="1070" y1="80" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0f766e" stop-opacity=".28"/>
+      <stop offset=".5" stop-color="#1d4ed8" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#7c3aed" stop-opacity=".24"/>
+    </linearGradient>
+    <filter id="shadow" x="142" y="86" width="916" height="632" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="28" stdDeviation="30" flood-color="#020617" flood-opacity=".45"/>
+    </filter>
+  </defs>
+</svg>

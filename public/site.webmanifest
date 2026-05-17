@@ -1,0 +1,16 @@
+{
+  "name": "Ahmad Habibi Portfolio",
+  "short_name": "Habibi",
+  "description": "Portfolio Ahmad Habibi untuk EdTech, AI, dan software development.",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#020617",
+  "background_color": "#020617",
+  "display": "standalone"
+}

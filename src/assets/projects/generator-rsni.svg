@@ -1,0 +1,35 @@
+<svg width="1200" height="760" viewBox="0 0 1200 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="760" fill="#07111f"/>
+  <rect width="1200" height="760" fill="url(#bg)"/>
+  <g opacity=".24">
+    <path d="M140 150h920M140 260h920M140 370h920M140 480h920M140 590h920M240 95v570M420 95v570M600 95v570M780 95v570M960 95v570" stroke="#38bdf8" stroke-width="2"/>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="170" y="128" width="860" height="520" rx="34" fill="#0f172a" stroke="#1e3a5f" stroke-width="4"/>
+    <rect x="170" y="128" width="860" height="72" rx="34" fill="#111c31"/>
+    <circle cx="226" cy="164" r="10" fill="#fb7185"/>
+    <circle cx="260" cy="164" r="10" fill="#facc15"/>
+    <circle cx="294" cy="164" r="10" fill="#34d399"/>
+    <rect x="236" y="254" width="300" height="320" rx="22" fill="#f8fafc"/>
+    <rect x="282" y="304" width="208" height="18" rx="9" fill="#94a3b8"/>
+    <rect x="282" y="354" width="160" height="14" rx="7" fill="#cbd5e1"/>
+    <rect x="282" y="392" width="208" height="14" rx="7" fill="#cbd5e1"/>
+    <rect x="282" y="430" width="120" height="14" rx="7" fill="#cbd5e1"/>
+    <rect x="648" y="252" width="286" height="66" rx="14" fill="#082f49" stroke="#0ea5e9" stroke-width="3"/>
+    <rect x="648" y="356" width="286" height="66" rx="14" fill="#052e2b" stroke="#2dd4bf" stroke-width="3"/>
+    <rect x="648" y="460" width="286" height="66" rx="14" fill="#312e81" stroke="#818cf8" stroke-width="3"/>
+    <path d="M548 414h76" stroke="#22d3ee" stroke-width="12" stroke-linecap="round"/>
+    <path d="M598 374l48 40-48 40" stroke="#22d3ee" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="600" y="173" fill="#e2e8f0" font-family="Arial, sans-serif" font-size="34" font-weight="700" text-anchor="middle">RSNI DOCUMENT GENERATOR</text>
+  </g>
+  <defs>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(990 120) rotate(143) scale(840 520)">
+      <stop stop-color="#0ea5e9" stop-opacity=".38"/>
+      <stop offset=".54" stop-color="#1e1b4b" stop-opacity=".58"/>
+      <stop offset="1" stop-color="#020617"/>
+    </radialGradient>
+    <filter id="shadow" x="120" y="92" width="960" height="620" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="35" stdDeviation="32" flood-color="#000000" flood-opacity=".45"/>
+    </filter>
+  </defs>
+</svg>
