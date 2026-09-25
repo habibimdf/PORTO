@@ -208,7 +208,7 @@ const Navbar = () => {
     { label: t.nav.experience, href: "#experience" },
     { label: t.nav.projects, href: "#projects" },
     { label: t.nav.certs, href: "#certifications" },
-    { label: t.nav.contact, href: "#contact" },
+    
   ];
 
   const scrolledCls = isScrolled
